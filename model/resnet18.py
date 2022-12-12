@@ -192,11 +192,11 @@ class Resnet_FasionMNIST():
             self.writer.add_scalar("test_loss", avg_loss, epoch)
             # print results
             print(
-                f"[{epoch}/{train_epochs:.3f}] train_loss: {l.item():.3f}, test_loss: {avg_loss:.3f}, train_acc: {train_acc*100:.3f}%, test_acc: {avg_acc*100:.3f}%")
+                f"[{epoch}/{train_epochs}] train_loss: {l.item():.3f}, test_loss: {avg_loss:.3f}, train_acc: {train_acc*100:.3f}%, test_acc: {avg_acc*100:.3f}%")
         # save model
         print("training ended, saving parameters at {}".format(
             os.path.join(self.path, "model.pth")))
-        t.save(self.net.parameters(), os.path.join(self.path, "model.pth"))
+        self.save(os.path.join(self.path, "model.pth"))
 
     def test(self, verbose=False):
         """
@@ -220,3 +220,12 @@ class Resnet_FasionMNIST():
         if verbose:
             print("avg_acc: {}, avg_loss: {}".format(avg_acc, avg_loss))
         return avg_acc, avg_loss
+
+    def save(self, path):
+        t.save(self.net.state_dict(), path)
+
+    def visualize(self, X_batch: Tensor, y_hat_batch: Tensor, y_batch: Tensor):
+        for X, y_hat, y in zip(X_batch, y_hat_batch, y_batch):
+            # X.shape = [1,H,W]
+            # y_hat,y.shape = [1]
+            pass

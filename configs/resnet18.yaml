@@ -1,13 +1,13 @@
 # train setttings
 train_settings:
-  l2_penalty: 0
+  l2_penalty: 0.001
   lr: 0.001
-  train_epoch: 100
+  train_epoch: 20
   device: "cuda"
   pretrained_parameters:
 # dataset
 dataset_settings:
-  batch_size: 256
+  batch_size: 1024
   test_root: "./data"
   train_root: "./data"
   resize:
