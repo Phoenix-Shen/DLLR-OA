@@ -153,7 +153,7 @@ class Resnet_FasionMNIST():
             self.net.load_state_dict(
                 t.load(self.train_settings["pretrained_parameters"]))
         # optimizer
-        self.optimizer = t.optim.SGD(
+        self.optimizer = t.optim.Adam(
             self.net.parameters(),
             lr=self.train_settings["lr"],
             weight_decay=self.train_settings["l2_penalty"])
@@ -164,7 +164,7 @@ class Resnet_FasionMNIST():
 
     def train(self):
         """start the training procedure"""
-        print("Training on ", self.device)
+        print("Training on", self.device)
 
         # get the number of the batches
         num_batches = len(self.train_loader)
@@ -191,11 +191,11 @@ class Resnet_FasionMNIST():
             self.writer.add_scalar("test_acc", avg_acc, epoch)
             self.writer.add_scalar("test_loss", avg_loss, epoch)
             # print results
-            if (epoch+1) % self.train_settings["eval_interval"] == 0:
-                print(
-                    f"[{epoch}/{train_epochs}] train_loss: {l.item()}, test_loss: {avg_loss}, train_acc: {train_acc}, test_acc: {avg_acc}")
+            print(
+                f"[{epoch}/{train_epochs:.3f}] train_loss: {l.item():.3f}, test_loss: {avg_loss:.3f}, train_acc: {train_acc*100:.3f}%, test_acc: {avg_acc*100:.3f}%")
         # save model
-        print("training ended, saving parameters at {}".format(os.path.join(self.path, "model.pth")))
+        print("training ended, saving parameters at {}".format(
+            os.path.join(self.path, "model.pth")))
         t.save(self.net.parameters(), os.path.join(self.path, "model.pth"))
 
     def test(self, verbose=False):

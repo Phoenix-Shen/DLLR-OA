@@ -3,7 +3,7 @@ train_settings:
   l2_penalty: 0
   lr: 0.001
   train_epoch: 100
-  device: "cpu"
+  device: "cuda"
   pretrained_parameters:
 # dataset
 dataset_settings:
