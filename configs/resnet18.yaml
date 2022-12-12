@@ -1,0 +1,13 @@
+# train setttings
+train_settings:
+  l2_penalty: 0
+  lr: 0.001
+  train_epoch: 100
+  device: "cpu"
+  pretrained_parameters:
+# dataset
+dataset_settings:
+  batch_size: 256
+  test_root: "./data"
+  train_root: "./data"
+  resize:
