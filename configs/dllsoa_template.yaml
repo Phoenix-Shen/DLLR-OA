@@ -1,0 +1,9 @@
+num_clients: 12 # the number of local clients
+model_name: resnet-18 # only support resnet-18 and CNN
+iid: True # True or False
+batch_size: 128 # the batch size in the train and test procedure
+lr: 0.001 # the lr of each client
+comp_strategy: random # only support random,weight and grad
+ep_num: 20
+sub_carrier_strategy: no-limit # only support no-limit, restricted-1 (1/3 receive all), restricted-2
+cuda: True

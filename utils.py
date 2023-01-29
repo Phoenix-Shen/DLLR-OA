@@ -7,6 +7,7 @@ import os
 import torch as t
 from torch import Tensor
 import yaml
+import torch.nn as nn
 
 
 def load_config(file_path: str) -> dict:
@@ -105,3 +106,56 @@ def accuracy(y_hat: t.Tensor, y: t.Tensor) -> float:
         y_hat = t.argmax(y_hat, dim=1)
     cmp = y_hat.type(y.dtype) == y
     return float(sum(cmp.type(y.dtype)))/y_hat.shape[0]
+
+
+def calculate_weight_norm(net: nn.Module):
+    """
+    calculate the 2nd-norm of the weight layer of the network
+    ------
+    Parameters:
+        net: the given network
+    Returns:
+        dict: the sortd weight norm dictionary
+    """
+    weight_norm = {}
+    with t.no_grad():
+        for name, param in net.named_parameters():
+            if "weight" in name:
+                weight_norm[name] = t.norm(param)
+
+    weight_norm = sorted(weight_norm.items(), key=lambda x: x[1], reverse=True)
+    return weight_norm
+
+
+def calculate_grad_norm(net: nn.Module):
+    """
+    calculate the 2nd-norm of the weight layer of the network
+    ------
+    Parameters:
+        net: the given network
+    Returns:
+        dict: the sortd weight norm dictionary
+    """
+    grad_norm = {}
+    for name, param in net.named_parameters():
+        if "weight" in name:
+            grad_norm[name] = t.norm(param.grad)
+
+    grad_norm = sorted(grad_norm.items(), key=lambda x: x[1], reverse=True)
+    return grad_norm
+
+
+def get_weight_num(net: nn.Module):
+    """
+    get the number of the weight layer
+    ------
+    Parameters:
+        net: nn.Module, the given net
+    return:
+        int, the number of weight layers
+    """
+    num = 0
+    for name, _ in net.named_parameters():
+        if "weight" in name:
+            num+=1
+    return num
