@@ -3,17 +3,19 @@ import torch.utils.data as data
 from torch.optim import Adam
 import numpy as np
 import torch as t
-from utils import calculate_grad_norm, get_weight_num, calculate_weight_norm
+from utils import calculate_grad_norm, get_weight_num, calculate_weight_norm, compute_power_coeff, compute_alpha, aggregation
 import random
 from tensorboardX import SummaryWriter
 from copy import deepcopy
 from dataset import load_mnist
 from model import resnet18
 import random
+from numpy import ndarray
 
 
 class LocalClient(object):
     def __init__(self,
+                 id: int,
                  local_model: nn.Module,
                  train_loader: data.DataLoader,
                  test_loader: data.DataLoader,
@@ -24,6 +26,7 @@ class LocalClient(object):
                  sub_carrier_num: int,
                  device: t.device):
         # save parameters as member variables
+        self.id = id
         self.model = local_model.to(device)
         self.train_loader = train_loader
         self.test_loader = test_loader
@@ -35,6 +38,59 @@ class LocalClient(object):
         # init optimizer and loss function
         self.optimizer = Adam(self.model.parameters(), self.lr)
         self.loss_func = loss_func
+        # init channel gain
+        self.channel_gain = np.ones(self.sub_carrier_num, dtype=np.float32)
+
+    def rcv_params(self, model_params: dict, xi_neighbors: ndarray, weight_neighbors: ndarray, amendment_strategy: str):
+        """
+        receive the parameters from the neighbors
+        ------
+        Parameters:
+            model_params:dict, the sum of neighboring clients information through over-the-air aggregation (already added noise)
+            xi_neighbors: the xi of the neighbors
+            weight_neighbors: the weight of the neighbors
+        Returns:
+            None
+        """
+        # compute alpha
+        if amendment_strategy == "eq5":
+            weight_neighbors = None
+        elif amendment_strategy == "eq6":
+            pass
+        else:
+            raise ValueError("Unsupported value, only support eq5 and eq6")
+        alpha = compute_alpha(self.id, xi_neighbors, weight_neighbors)
+        # begin aggregation
+        model_params = {k: v*alpha for k, v in model_params.items()}
+        self.model.load_state_dict(model_params, strict=False)
+
+    def send_params(self, component_keys: list[str],  E: float, W: float, channel_gain: ndarray,):
+        """
+        get the parameters according to the channel conditions
+        ------
+        Parameters:
+            component_keys: the key of parameters, i.e. the mask in the paper
+            E: float, the E_{ij} in equation (3)
+            W: float, the W_{ij} in equation (3), W is the connectivity matrix
+            channel_gain: the channel gain of the specified local device
+        Returns:
+            the specified parameters after power coefficient adjustments
+        """
+        with t.no_grad():
+            # compute the power allocation coefficients b_ij^t(k) first
+            weight_norm = calculate_weight_norm(self.model, component_keys)
+            b = compute_power_coeff(E, W, channel_gain, weight_norm.values())
+            # get the parameters according to the mask (here we use key to read the parameters)
+            all_keys = self.model.state_dict().keys()
+            model_param = {}
+            for key in all_keys:
+                if key in component_keys:
+                    model_param[key] = self.model.state_dict()[key]
+            # multiply the weight by the power allocation coefficients and the channel gain
+            for idx, key in enumerate(component_keys):
+                model_param[key] = model_param[key]*b[idx]*channel_gain[idx]
+            # finally, return the processed parameters
+            return model_param
 
     def train(self,):
         """
@@ -120,6 +176,9 @@ class DLLSOA(object):
         self.device = t.device(
             "cuda") if args["cuda"] and t.cuda.is_available() else t.device("cpu")
         self.num_clients = args["num_clients"]
+        self.sigma = args["sigma"]
+        self.amendment_strategy = args["amendment_strategy"]
+        self.train_epoch = args["train_epoch"]
         # split datasets
         dataloader_allusr, train_loader, test_loader = load_mnist(
             args["iid"], args["num_clients"], args["batch_size"],)
@@ -150,6 +209,7 @@ class DLLSOA(object):
         # create clients
         self.clients = [
             LocalClient(
+                i,
                 deepcopy(net),
                 dataloader_allusr[i],
                 test_loader,
@@ -162,3 +222,32 @@ class DLLSOA(object):
             )
             for i in range(self.num_clients)
         ]
+        # init some variables such as connetivity matrix
+        self.W = np.zeros((self.num_clients, self.num_clients))
+        self.E = np.zeros((self.num_clients, self.num_clients))
+        self.xi = np.zeros((self.num_clients, self.num_clients))
+
+    def train(self):
+        """
+        begin the training procedure
+        """
+        # here simply use for loop instead of multiprocessing
+        # todo: use multiprocessing
+        for ep in range(self.train_epoch):
+            for i in range(self.num_clients):
+                mask = self.clients[i].generate_mask()
+                channel_gain = self.clients[i].channel_gain
+                rcv_models = []
+                for j in range(self.num_clients):
+                    model = self.clients[j].send_params(
+                        mask, self.E[i][j], self.W[i][j], channel_gain)
+                    rcv_models.append(model)
+                processed_model = aggregation(rcv_models, self.sigma)
+                self.clients[i].rcv_params(
+                    processed_model, self.xi[i], self.W[i], self.amendment_strategy)
+            print(f"ep:[{ep}/{self.train_epoch}]")
+
+    def test(self):
+        """
+        begin the test procedure
+        """
