@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
-                "./configs/resnet18.yaml"
+                "configs/dllsoa_template.yaml"
             ]
         }
     ]

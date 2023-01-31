@@ -41,9 +41,9 @@ def load_mnist(iid: bool, num_users: int, batch_size: int):
     trans_mnist = tv.transforms.Compose(
         [tv.transforms.ToTensor(), tv.transforms.Normalize((0.1307,), (0.3081,))])
     dataset_train = tv.datasets.MNIST(
-        root=r'envs\FedAvg\data', train=True, transform=trans_mnist, download=True)
+        root=r'data', train=True, transform=trans_mnist, download=True)
     dataset_test = tv.datasets.MNIST(
-        root=r'envs\FedAvg\data', train=False, transform=trans_mnist, download=True)
+        root=r'data', train=False, transform=trans_mnist, download=True)
     # if iid:
     if iid:
         dict_users = mnist_iid(dataset_train, num_users)
@@ -128,4 +128,3 @@ def mnist_noniid(dataset: data.Dataset, num_users: int) -> dict:
             dict_users[i] = np.concatenate(
                 (dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]), axis=0)
     return dict_users
-

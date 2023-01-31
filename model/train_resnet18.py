@@ -1,7 +1,4 @@
-import tensorboardX
-import torch as t
-import torch.nn as nn
-from model.resnet18 import Resnet_FasionMNIST
+from resnet18 import Resnet_FasionMNIST
 import utils
 import argparse
 
@@ -14,7 +11,7 @@ def train_resnet18():
         "config_path",
         type=str,
         help="the config file path",
-        default="configs\\resnet18.yaml",
+        default="configs/resnet18.yaml",
     )
 
     parser.add_argument(

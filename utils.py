@@ -128,11 +128,11 @@ def calculate_weight_norm(net: nn.Module, component_keys: list[str] = None):
         if component_keys is not None:
             for name, param in net.named_parameters():
                 if name in component_keys:
-                    weight_norm[name] = t.norm(param)
+                    weight_norm[name] = t.norm(param).item()
         else:
             for name, param in net.named_parameters():
-                if "weight" in name:
-                    weight_norm[name] = t.norm(param)
+                if "weight" in name or "bias" in name:
+                    weight_norm[name] = t.norm(param).item()
 
     if component_keys is None:
         weight_norm = sorted(weight_norm.items(),
@@ -152,8 +152,8 @@ def calculate_grad_norm(net: nn.Module):
     """
     grad_norm = {}
     for name, param in net.named_parameters():
-        if "weight" in name:
-            grad_norm[name] = t.norm(param.grad)
+        if "weight" in name or "bias" in name:
+            grad_norm[name] = t.norm(param.grad).item()
 
     grad_norm = sorted(grad_norm.items(), key=lambda x: x[1], reverse=True)
     return grad_norm
@@ -170,12 +170,12 @@ def get_weight_num(net: nn.Module):
     """
     num = 0
     for name, _ in net.named_parameters():
-        if "weight" in name:
+        if "weight" in name or "bias" in name:
             num += 1
     return num
 
 
-def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray):
+def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray, pow_limit: bool):
     """
     compute the power allocation coefficient according to the channel conditions
     ------
@@ -184,19 +184,25 @@ def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray):
         W: float, the W_{ij} in equation (3), W is the connectivity matrix
         channel_gain: the channel gain of the specified local device
         x: the component of each sub_carrier, i.e. the x_{ij}(k) in equation (3)
+        pow_limit: whether the transmition power is limited
     Returns:
         ndarray: the power allocation coefficient of all channels
+        float: xi
     """
+
     # first, calculate \xi^* according to equation (3)
     denominator = W**2 * np.sum(np.power(x, 2)/np.power(channel_gain, 2))
-    xi = np.sqrt(E/denominator)
+    xi = np.sqrt(E/denominator) if denominator != 0. else 0
     # second, caculate the b_{ij}^*(k)
-    b = xi*W/channel_gain
-    # finally, return b
-    return b
+    if pow_limit:
+        b = xi*W/channel_gain
+        # finally, return b
+    else:
+        b = W/channel_gain
+    return b, xi
 
 
-def compute_alpha(id: int, xi_neighbors: ndarray, weight_neighbors: ndarray = None):
+def compute_alpha(id: int, xi_neighbors: ndarray, weight_neighbors: ndarray = None, pow_limit=False):
     """
     compute alpha_i for local clients
     ------
@@ -204,19 +210,22 @@ def compute_alpha(id: int, xi_neighbors: ndarray, weight_neighbors: ndarray = No
         id: int, the id of the local client
         xi_neighbors: ndarray
         weight_neighbors: ndarray
+        pow_limit: whether the transmition power is limited
     Returns:
         the estimated alpha, if weight_neighbors is None, use equation (5) else use equation (6)
     """
-
-    xi_neighbors[id] = 0
-    weight_neighbors[id] = 0
-    # if weight_neighbors is none, use equation (5)
-    if weight_neighbors is None:
-        alpha = (xi_neighbors.shape[0]-1)/np.sum(xi_neighbors)
-    # else use equation (6)
+    if pow_limit:
+        xi_neighbors[id] = 0
+        weight_neighbors[id] = 0
+        # if weight_neighbors is none, use equation (5)
+        if weight_neighbors is None:
+            alpha = (xi_neighbors.shape[0]-1)/np.sum(xi_neighbors)
+        # else use equation (6)
+        else:
+            alpha = np.sum(weight_neighbors) / \
+                np.sum(weight_neighbors*xi_neighbors)
     else:
-        alpha = np.sum(weight_neighbors) / \
-            np.sum(weight_neighbors*xi_neighbors)
+        alpha = 1.
     return alpha
 
 
@@ -239,3 +248,67 @@ def aggregation(model_dicts: list[dict], sigma: float):
         # add noise
         processed_model[key] += t.randn_like(processed_model[key])*sigma
     return processed_model
+
+
+def gen_topo(num_clients: int, seed: int):
+    """
+    randomly generate a graph of the network
+    ------
+    Parameters:
+        num_clients: the number of clients
+        seed: the random seed
+    Returns:
+        the adjacency matrix
+    """
+    np.random.seed(seed)
+    mat = np.random.randn(num_clients, num_clients)
+    # should be modified later
+    mat[mat <= 0] = 0.
+    mat[mat > 0] = 1.
+    # get the upper triangle
+    mat_tri = np.triu(mat)
+    # substract the diagonal matrix
+    mat_tri -= np.diag(np.diagonal(mat_tri))
+    # add the transpose
+    mat_tri = mat_tri+mat_tri.T+np.eye(num_clients)
+    return mat_tri
+
+
+def init_w(adj_mat: ndarray,):
+    """
+    init the weight matrix of every client, it should be $\mathcal{R}^{n \times n}$
+    ------
+    Parameters:
+        adj_mat: the adjacency matrix of the network
+    Returns:
+        the weight matrix of $\mathcal{R}^{n \times n}$ shape.
+    """
+    P = np.zeros_like(adj_mat)
+    for i in range(adj_mat.shape[0]):
+        for j in range(adj_mat.shape[1]):
+            if i != j and adj_mat[i][j] != 0:
+                P[i][j] = 1./np.max(
+                    [np.sum(adj_mat[i]),
+                     np.sum(adj_mat[j]),]
+                )
+        # in the end update P_{ij} when i=j
+        P[i][i] = 1.0 - np.sum(P[i])
+    return P
+
+
+def calculate_E(W: float, x: ndarray, h: ndarray, beta: float):
+    """
+    Calculate E_{ij} of the certain device.
+    ------
+    Parameters:
+        W: the weight of the device i to j
+        x: the l2 norm of the model components
+        h: the channel gains of the device i to j
+        beta: the estimation factor
+    Returns:
+        the estimated E_{ij}
+    """
+    inner_term = W * x / h
+    inner_term = np.power(inner_term, 2)
+    inner_term = np.sum(inner_term)
+    return inner_term*beta

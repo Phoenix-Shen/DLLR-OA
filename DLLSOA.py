@@ -3,7 +3,16 @@ import torch.utils.data as data
 from torch.optim import Adam
 import numpy as np
 import torch as t
-from utils import calculate_grad_norm, get_weight_num, calculate_weight_norm, compute_power_coeff, compute_alpha, aggregation
+from utils import (calculate_grad_norm,
+                   get_weight_num,
+                   calculate_weight_norm,
+                   compute_power_coeff,
+                   compute_alpha,
+                   aggregation,
+                   weight_init,
+                   init_w,
+                   calculate_E,
+                   gen_topo)
 import random
 from tensorboardX import SummaryWriter
 from copy import deepcopy
@@ -24,7 +33,9 @@ class LocalClient(object):
                  lr: float,
                  ep_num: int,
                  sub_carrier_num: int,
-                 device: t.device):
+                 device: t.device,
+                 channel_gain: ndarray,
+                 pow_limit: bool):
         # save parameters as member variables
         self.id = id
         self.model = local_model.to(device)
@@ -35,11 +46,13 @@ class LocalClient(object):
         self.ep_num = ep_num
         self.device = device
         self.sub_carrier_num = sub_carrier_num
+        self.pow_limit = pow_limit
         # init optimizer and loss function
         self.optimizer = Adam(self.model.parameters(), self.lr)
         self.loss_func = loss_func
+        self.model.apply(weight_init)
         # init channel gain
-        self.channel_gain = np.ones(self.sub_carrier_num, dtype=np.float32)
+        self.channel_gain = channel_gain
 
     def rcv_params(self, model_params: dict, xi_neighbors: ndarray, weight_neighbors: ndarray, amendment_strategy: str):
         """
@@ -59,27 +72,36 @@ class LocalClient(object):
             pass
         else:
             raise ValueError("Unsupported value, only support eq5 and eq6")
-        alpha = compute_alpha(self.id, xi_neighbors, weight_neighbors)
+        alpha = compute_alpha(self.id, xi_neighbors,
+                              weight_neighbors, self.pow_limit)
         # begin aggregation
         model_params = {k: v*alpha for k, v in model_params.items()}
         self.model.load_state_dict(model_params, strict=False)
 
-    def send_params(self, component_keys: list[str],  E: float, W: float, channel_gain: ndarray,):
+    def send_params(self, component_keys: list[str], W: float, channel_gain: ndarray, beta: float):
         """
         get the parameters according to the channel conditions
         ------
         Parameters:
             component_keys: the key of parameters, i.e. the mask in the paper
-            E: float, the E_{ij} in equation (3)
             W: float, the W_{ij} in equation (3), W is the connectivity matrix
             channel_gain: the channel gain of the specified local device
+            beta: the estimation factor of the E
         Returns:
-            the specified parameters after power coefficient adjustments
+            model_param:the specified parameters after power coefficient adjustments
+            xi: the computed xi
         """
+        # start the training procedure
+
+        #
         with t.no_grad():
             # compute the power allocation coefficients b_ij^t(k) first
             weight_norm = calculate_weight_norm(self.model, component_keys)
-            b = compute_power_coeff(E, W, channel_gain, weight_norm.values())
+            weight_norm_val = np.array(list(weight_norm.values()))
+            # compute E
+            E = calculate_E(W, weight_norm_val, channel_gain, beta)
+            b, xi = compute_power_coeff(
+                E, W, channel_gain, weight_norm_val, self.pow_limit)
             # get the parameters according to the mask (here we use key to read the parameters)
             all_keys = self.model.state_dict().keys()
             model_param = {}
@@ -90,7 +112,7 @@ class LocalClient(object):
             for idx, key in enumerate(component_keys):
                 model_param[key] = model_param[key]*b[idx]*channel_gain[idx]
             # finally, return the processed parameters
-            return model_param
+            return model_param, xi
 
     def train(self,):
         """
@@ -148,7 +170,7 @@ class LocalClient(object):
         if self.comp_strategy == "random":
             param_keys = []
             for name, _ in self.model.named_parameters():
-                if "weight" in name:
+                if "weight" in name or "bias" in name:
                     param_keys.append(name)
             random.shuffle(param_keys)
             return param_keys[:self.sub_carrier_num]
@@ -179,6 +201,8 @@ class DLLSOA(object):
         self.sigma = args["sigma"]
         self.amendment_strategy = args["amendment_strategy"]
         self.train_epoch = args["train_epoch"]
+        self.beta = args["beta"]
+        self.pow_limit = args["pow_limit"]
         # split datasets
         dataloader_allusr, train_loader, test_loader = load_mnist(
             args["iid"], args["num_clients"], args["batch_size"],)
@@ -219,30 +243,44 @@ class DLLSOA(object):
                 args["ep_num"],
                 sub_carrier_nums[i],
                 self.device,
+                np.random.rayleigh(
+                    1., size=(self.num_clients,
+                              sub_carrier_nums[i])),
+                self.pow_limit
             )
             for i in range(self.num_clients)
         ]
         # init some variables such as connetivity matrix
-        self.W = np.zeros((self.num_clients, self.num_clients))
-        self.E = np.zeros((self.num_clients, self.num_clients))
+        topo = gen_topo(self.num_clients, args["seed"])
+        self.W = init_w(topo)
         self.xi = np.zeros((self.num_clients, self.num_clients))
 
     def train(self):
         """
         begin the training procedure
+        ------
+        Parameters:
+            None
+        Returns:
+            None
         """
         # here simply use for loop instead of multiprocessing
         # todo: use multiprocessing
         for ep in range(self.train_epoch):
             for i in range(self.num_clients):
+                # 1. generate mask of components
                 mask = self.clients[i].generate_mask()
-                channel_gain = self.clients[i].channel_gain
+                channel_gains = self.clients[i].channel_gain
                 rcv_models = []
+                # 2. send the mask to all neighbors and receive parameters
                 for j in range(self.num_clients):
-                    model = self.clients[j].send_params(
-                        mask, self.E[i][j], self.W[i][j], channel_gain)
-                    rcv_models.append(model)
+                    if self.W[i][j] != 0.:
+                        model, self.xi[i][j] = self.clients[j].send_params(
+                            mask, self.W[i][j], channel_gains[j], self.beta)
+                        rcv_models.append(model)
+                # 3. begin aggregation
                 processed_model = aggregation(rcv_models, self.sigma)
+                # 4. perform gradient descent and update parameters
                 self.clients[i].rcv_params(
                     processed_model, self.xi[i], self.W[i], self.amendment_strategy)
             print(f"ep:[{ep}/{self.train_epoch}]")
