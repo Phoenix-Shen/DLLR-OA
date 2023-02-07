@@ -74,9 +74,14 @@ class LocalClient(object):
             raise ValueError("Unsupported value, only support eq5 and eq6")
         alpha = compute_alpha(self.id, xi_neighbors,
                               weight_neighbors, self.pow_limit)
-        # begin aggregation
-        model_params = {k: v*alpha for k, v in model_params.items()}
-        self.model.load_state_dict(model_params, strict=False)
+        if model_params is not None:
+            # begin aggregation
+            model_params = {k: v*alpha for k, v in model_params.items()}
+            # add its' own parameters
+            model_params = {
+                k: model_params[k]+self.model.state_dict()[k] for k in model_params.keys()}
+            # finally load the state dictionary
+            self.model.load_state_dict(model_params, strict=False)
 
     def send_params(self, component_keys: list[str], W: float, channel_gain: ndarray, beta: float):
         """
@@ -274,7 +279,7 @@ class DLLSOA(object):
                 rcv_models = []
                 # 2. send the mask to all neighbors and receive parameters
                 for j in range(self.num_clients):
-                    if self.W[i][j] != 0.:
+                    if self.W[i][j] != 0. and i != j:
                         model, self.xi[i][j] = self.clients[j].send_params(
                             mask, self.W[i][j], channel_gains[j], self.beta)
                         rcv_models.append(model)

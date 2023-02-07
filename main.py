@@ -3,9 +3,9 @@ import utils
 import argparse
 
 
-def train_resnet18():
+def main():
     parser = argparse.ArgumentParser(
-        prog="train_DLLSOA", description="load the resnet18 config file"
+        prog="train_DLLSOA", description="load the DLLSOA config file"
     )
     parser.add_argument(
         "config_path",
@@ -22,4 +22,4 @@ def train_resnet18():
 
 
 if __name__ == "__main__":
-    train_resnet18()
+    main()

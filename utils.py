@@ -240,14 +240,17 @@ def aggregation(model_dicts: list[dict], sigma: float):
     Returns:
         the model after adding noise
     """
-    processed_model = model_dicts[0]
-    # begin aggregation
-    for key in model_dicts[0].keys():
-        for model in model_dicts[1:]:
-            processed_model[key] += model[key]
-        # add noise
-        processed_model[key] += t.randn_like(processed_model[key])*sigma
-    return processed_model
+    if len(model_dicts) != 0:
+        processed_model = model_dicts[0]
+        # begin aggregation
+        for key in model_dicts[0].keys():
+            for model in model_dicts:
+                processed_model[key] += model[key]
+            # add noise
+            processed_model[key] += t.randn_like(processed_model[key])*sigma
+        return processed_model
+    else:
+        return None
 
 
 def gen_topo(num_clients: int, seed: int):
@@ -289,7 +292,7 @@ def init_w(adj_mat: ndarray,):
             if i != j and adj_mat[i][j] != 0:
                 P[i][j] = 1./np.max(
                     [np.sum(adj_mat[i]),
-                     np.sum(adj_mat[j]),]
+                     np.sum(adj_mat[j]), ]
                 )
         # in the end update P_{ij} when i=j
         P[i][i] = 1.0 - np.sum(P[i])
