@@ -24,6 +24,7 @@ from numpy import ndarray
 import time
 import os
 import yaml
+from tqdm import tqdm
 
 
 class LocalClient(object):
@@ -286,7 +287,9 @@ class DLLSOA(object):
         """
         # here simply use for loop instead of multiprocessing
         # todo: use multiprocessing
-        for ep in range(self.train_epoch):
+        print("training begin...")
+        print("the randomly generated W is: \n", self.W)
+        for ep in tqdm(range(self.train_epoch)):
             # local training
             losses = [client.train() for client in self.clients]
             [self.writer.add_scalar("train_loss_client_{}".format(
@@ -319,3 +322,4 @@ class DLLSOA(object):
         """
         begin the test procedure
         """
+        pass

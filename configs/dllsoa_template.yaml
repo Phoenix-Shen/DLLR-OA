@@ -1,4 +1,4 @@
-num_clients: 5 # the number of local clients
+num_clients: 12 # the number of local clients
 model_name: resnet-18 # only support resnet-18 and CNN
 iid: True # True or False, use IID data?
 batch_size: 128 # the batch size in the train and test procedure
