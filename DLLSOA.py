@@ -12,7 +12,8 @@ from utils import (calculate_grad_norm,
                    weight_init,
                    init_w,
                    calculate_E,
-                   gen_topo)
+                   gen_topo,
+                   create_folder)
 import random
 from tensorboardX import SummaryWriter
 from copy import deepcopy
@@ -20,6 +21,9 @@ from dataset import load_mnist
 from model import resnet18
 import random
 from numpy import ndarray
+import time
+import os
+import yaml
 
 
 class LocalClient(object):
@@ -67,19 +71,20 @@ class LocalClient(object):
         """
         # compute alpha
         if amendment_strategy == "eq5":
-            weight_neighbors = None
+            alpha = compute_alpha(self.id, xi_neighbors,
+                                  None, self.pow_limit)
         elif amendment_strategy == "eq6":
-            pass
+            alpha = compute_alpha(self.id, xi_neighbors,
+                                  weight_neighbors, self.pow_limit)
         else:
             raise ValueError("Unsupported value, only support eq5 and eq6")
-        alpha = compute_alpha(self.id, xi_neighbors,
-                              weight_neighbors, self.pow_limit)
+
         if model_params is not None:
             # begin aggregation
             model_params = {k: v*alpha for k, v in model_params.items()}
             # add its' own parameters
             model_params = {
-                k: model_params[k]+self.model.state_dict()[k] for k in model_params.keys()}
+                k: model_params[k]+self.model.state_dict()[k]*weight_neighbors[self.id] for k in model_params.keys()}
             # finally load the state dictionary
             self.model.load_state_dict(model_params, strict=False)
 
@@ -156,6 +161,8 @@ class LocalClient(object):
         # start the iteration
         with t.no_grad():
             for (X, y) in self.test_loader:
+                X = X.to(self.device)
+                y = y.to(self.device)
                 y_hat = self.model.forward(X)
                 loss = self.loss_func.forward(y_hat, y)
                 sum_loss.append(loss.item())
@@ -259,6 +266,14 @@ class DLLSOA(object):
         topo = gen_topo(self.num_clients, args["seed"])
         self.W = init_w(topo)
         self.xi = np.zeros((self.num_clients, self.num_clients))
+        # tensorboardX
+        log_dir = os.path.join(args["log_dir"], time.strftime(
+            "%Y-%m-%d-%H-%M-%S", time.localtime()))
+        create_folder(log_dir)
+        self.writer = SummaryWriter(log_dir)
+        # save the configuration as a dictionary
+        with open(os.path.join(log_dir, "config.yaml"), "w") as f:
+            yaml.dump(args, f)
 
     def train(self):
         """
@@ -272,6 +287,10 @@ class DLLSOA(object):
         # here simply use for loop instead of multiprocessing
         # todo: use multiprocessing
         for ep in range(self.train_epoch):
+            # local training
+            losses = [client.train() for client in self.clients]
+            [self.writer.add_scalar("train_loss_client_{}".format(
+                i), losses[i], ep) for i in range(len(losses))]
             for i in range(self.num_clients):
                 # 1. generate mask of components
                 mask = self.clients[i].generate_mask()
@@ -288,7 +307,13 @@ class DLLSOA(object):
                 # 4. perform gradient descent and update parameters
                 self.clients[i].rcv_params(
                     processed_model, self.xi[i], self.W[i], self.amendment_strategy)
-            print(f"ep:[{ep}/{self.train_epoch}]")
+            test_loss_acc = [client.test() for client in self.clients]
+            [self.writer.add_scalar("test_loss_client_{}".format(
+                i), test_loss_acc[i][0], ep) for i in range(len(test_loss_acc))]
+            [self.writer.add_scalar("test_acc_client_{}".format(
+                i), test_loss_acc[i][1], ep) for i in range(len(test_loss_acc))]
+            print(
+                f"ep:[{ep}/{self.train_epoch}],train_loss:{losses},test_loss_acc:{test_loss_acc}")
 
     def test(self):
         """

@@ -244,7 +244,7 @@ def aggregation(model_dicts: list[dict], sigma: float):
         processed_model = model_dicts[0]
         # begin aggregation
         for key in model_dicts[0].keys():
-            for model in model_dicts:
+            for model in model_dicts[1:]:
                 processed_model[key] += model[key]
             # add noise
             processed_model[key] += t.randn_like(processed_model[key])*sigma
