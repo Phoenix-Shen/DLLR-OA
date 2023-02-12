@@ -175,7 +175,7 @@ def get_weight_num(net: nn.Module):
     return num
 
 
-def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray, pow_limit: bool):
+def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray, pow_limit: bool, pow_allow_stg: str):
     """
     compute the power allocation coefficient according to the channel conditions
     ------
@@ -185,6 +185,7 @@ def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray, p
         channel_gain: the channel gain of the specified local device
         x: the component of each sub_carrier, i.e. the x_{ij}(k) in equation (3)
         pow_limit: whether the transmition power is limited
+        pow_allow_stg: the power allocation strategy when power_limit is True, only support avg and eq3
     Returns:
         ndarray: the power allocation coefficient of all channels
         float: xi
@@ -195,7 +196,13 @@ def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray, p
     xi = np.sqrt(E/denominator) if denominator != 0. else 0
     # second, caculate the b_{ij}^*(k)
     if pow_limit:
-        b = xi*W/channel_gain
+        if pow_allow_stg == "eq3":
+            b = xi*W/channel_gain
+        elif pow_allow_stg == "avg":
+            b = np.sqrt(E/np.sum(np.power(x, 2)))
+        else:
+            ValueError(
+                "the power allocation coefficient only supports avg and eq3")
         # finally, return b
     else:
         b = W/channel_gain

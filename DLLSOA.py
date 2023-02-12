@@ -40,7 +40,8 @@ class LocalClient(object):
                  sub_carrier_num: int,
                  device: t.device,
                  channel_gain: ndarray,
-                 pow_limit: bool):
+                 pow_limit: bool,
+                 pow_allow_stg: str):
         # save parameters as member variables
         self.id = id
         self.model = local_model.to(device)
@@ -52,6 +53,7 @@ class LocalClient(object):
         self.device = device
         self.sub_carrier_num = sub_carrier_num
         self.pow_limit = pow_limit
+        self.pow_allow_stg = pow_allow_stg
         # init optimizer and loss function
         self.optimizer = Adam(self.model.parameters(), self.lr)
         self.loss_func = loss_func
@@ -112,7 +114,7 @@ class LocalClient(object):
             # compute E
             E = calculate_E(W, weight_norm_val, channel_gain, beta)
             b, xi = compute_power_coeff(
-                E, W, channel_gain, weight_norm_val, self.pow_limit)
+                E, W, channel_gain, weight_norm_val, self.pow_limit, self.pow_allow_stg)
             # get the parameters according to the mask (here we use key to read the parameters)
             all_keys = self.model.state_dict().keys()
             model_param = {}
@@ -224,20 +226,22 @@ class DLLSOA(object):
         if args["sub_carrier_strategy"] == "no-limit":
             sub_carrier_nums = [weight_num for _ in range(self.num_clients)]
         elif args["sub_carrier_strategy"] == "restricted-1":
-            sub_carrier_nums = [weight_num for _ in range(self.num_clients/3)]
+            sub_carrier_nums = [
+                weight_num for _ in range(int(self.num_clients/3))]
             sub_carrier_nums += [int(weight_num*0.8)
-                                 for _ in range(self.num_clients/3)]
+                                 for _ in range(int(self.num_clients/3))]
             sub_carrier_nums += [int(weight_num*0.6)
-                                 for _ in range(self.num_clients/3)]
+                                 for _ in range(int(self.num_clients/3))]
             random.shuffle(sub_carrier_nums)
         elif args["sub_carrier_strategy"] == "restricted-2":
-            sub_carrier_nums = [weight_num for _ in range(self.num_clients/4)]
+            sub_carrier_nums = [
+                weight_num for _ in range(int(self.num_clients/4))]
             sub_carrier_nums += [int(weight_num*0.8)
-                                 for _ in range(self.num_clients/4)]
+                                 for _ in range(int(self.num_clients/4))]
             sub_carrier_nums += [int(weight_num*0.7)
-                                 for _ in range(self.num_clients/4)]
+                                 for _ in range(int(self.num_clients/4))]
             sub_carrier_nums += [int(weight_num*0.6)
-                                 for _ in range(self.num_clients/4)]
+                                 for _ in range(int(self.num_clients/4))]
             random.shuffle(sub_carrier_nums)
         else:
             raise ValueError(
@@ -259,7 +263,8 @@ class DLLSOA(object):
                 np.random.rayleigh(
                     1., size=(self.num_clients,
                               sub_carrier_nums[i])),
-                self.pow_limit
+                self.pow_limit,
+                args["pow_allocation_strategy"],
             )
             for i in range(self.num_clients)
         ]
@@ -292,8 +297,7 @@ class DLLSOA(object):
         for ep in tqdm(range(self.train_epoch)):
             # local training
             losses = [client.train() for client in self.clients]
-            [self.writer.add_scalar("train_loss_client_{}".format(
-                i), losses[i], ep) for i in range(len(losses))]
+
             for i in range(self.num_clients):
                 # 1. generate mask of components
                 mask = self.clients[i].generate_mask()
@@ -310,11 +314,19 @@ class DLLSOA(object):
                 # 4. perform gradient descent and update parameters
                 self.clients[i].rcv_params(
                     processed_model, self.xi[i], self.W[i], self.amendment_strategy)
+            # Tensorboard logs
             test_loss_acc = [client.test() for client in self.clients]
             [self.writer.add_scalar("test_loss_client_{}".format(
                 i), test_loss_acc[i][0], ep) for i in range(len(test_loss_acc))]
             [self.writer.add_scalar("test_acc_client_{}".format(
                 i), test_loss_acc[i][1], ep) for i in range(len(test_loss_acc))]
+            [self.writer.add_scalar("train_loss_client_{}".format(
+                i), losses[i], ep) for i in range(len(losses))]
+            self.writer.add_scalar("mean_train_loss", np.mean(losses), ep)
+            self.writer.add_scalar("mean_test_loss", np.mean(
+                [test_loss_acc[i][0] for i in range(len(test_loss_acc))]), ep)
+            self.writer.add_scalar("mean_test_acc", np.mean(
+                [test_loss_acc[i][1] for i in range(len(test_loss_acc))]), ep)
             print(
                 f"ep:[{ep}/{self.train_epoch}],train_loss:{losses},test_loss_acc:{test_loss_acc}")
 
