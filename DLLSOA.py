@@ -74,11 +74,11 @@ class LocalClient(object):
         """
         # compute alpha
         if amendment_strategy == "eq5":
-            alpha = compute_alpha(self.id, xi_neighbors,
+            alpha = compute_alpha(self.id, xi_neighbors.copy(),
                                   None, self.pow_limit)
         elif amendment_strategy == "eq6":
-            alpha = compute_alpha(self.id, xi_neighbors,
-                                  weight_neighbors, self.pow_limit)
+            alpha = compute_alpha(self.id, xi_neighbors.copy(),
+                                  weight_neighbors.copy(), self.pow_limit)
         else:
             raise ValueError("Unsupported value, only support eq5 and eq6")
 

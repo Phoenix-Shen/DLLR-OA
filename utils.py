@@ -234,6 +234,7 @@ def compute_alpha(id: int, xi_neighbors: ndarray, weight_neighbors: ndarray = No
                 np.sum(weight_neighbors*xi_neighbors)
     else:
         alpha = 1.
+    # print("id:{},estimated alpha:{}".format(id, alpha))
     return alpha
 
 
