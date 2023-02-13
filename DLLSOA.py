@@ -212,6 +212,8 @@ class DLLSOA(object):
                 "only support resnet-18 and CNN, pls check the model_name")
         self.device = t.device(
             "cuda") if args["cuda"] and t.cuda.is_available() else t.device("cpu")
+        if self.device == t.device("cuda"):
+            t.backends.cudnn.benchmark = True
         self.num_clients = args["num_clients"]
         self.sigma = args["sigma"]
         self.amendment_strategy = args["amendment_strategy"]
@@ -307,7 +309,7 @@ class DLLSOA(object):
                 for j in range(self.num_clients):
                     if self.W[i][j] != 0. and i != j:
                         model, self.xi[i][j] = self.clients[j].send_params(
-                            mask, self.W[i][j], channel_gains[j], self.beta)
+                            mask, self.W[i][j], channel_gains[i], self.beta)
                         rcv_models.append(model)
                 # 3. begin aggregation
                 processed_model = aggregation(rcv_models, self.sigma)

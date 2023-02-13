@@ -199,7 +199,7 @@ def compute_power_coeff(E: float, W: float, channel_gain: ndarray, x: ndarray, p
         if pow_allow_stg == "eq3":
             b = xi*W/channel_gain
         elif pow_allow_stg == "avg":
-            b = np.sqrt(E/np.sum(np.power(x, 2)))
+            b = np.sqrt(E/np.sum(np.power(x, 2)))*np.ones_like(channel_gain)
         else:
             ValueError(
                 "the power allocation coefficient only supports avg and eq3")
@@ -223,12 +223,13 @@ def compute_alpha(id: int, xi_neighbors: ndarray, weight_neighbors: ndarray = No
     """
     if pow_limit:
         xi_neighbors[id] = 0
-        weight_neighbors[id] = 0
+
         # if weight_neighbors is none, use equation (5)
         if weight_neighbors is None:
-            alpha = (xi_neighbors.shape[0]-1)/np.sum(xi_neighbors)
+            alpha = (np.count_nonzero(xi_neighbors))/np.sum(xi_neighbors)
         # else use equation (6)
         else:
+            weight_neighbors[id] = 0
             alpha = np.sum(weight_neighbors) / \
                 np.sum(weight_neighbors*xi_neighbors)
     else:

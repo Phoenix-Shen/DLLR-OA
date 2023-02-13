@@ -17,21 +17,18 @@
 12. 子载波不受限，功率受限eq3,alpha用eq6,选择random
 
 13. 子载波受限1，功率受限eq3,alpha用eq5,选择random
-14. 子载波受限1，功率受限eq3,alpha用eq5,选择random
-15. 子载波受限1，功率受限eq3,alpha用eq5,选择random
-16. 子载波受限1，功率受限eq3,alpha用eq5,选择random
+14. 子载波受限1，功率受限eq3,alpha用eq5,选择weight
+15. 子载波受限1，功率受限eq3,alpha用eq5,选择grad
 
-17. 子载波受限1，功率受限eq3,alpha用eq6,选择random
-18. 子载波受限1，功率受限eq3,alpha用eq6,选择random
-19. 子载波受限1，功率受限eq3,alpha用eq6,选择random
-20. 子载波受限1，功率受限eq3,alpha用eq6,选择random
+16. 子载波受限1，功率受限eq3,alpha用eq6,选择random
+17. 子载波受限1，功率受限eq3,alpha用eq6,选择weight
+18. 子载波受限1，功率受限eq3,alpha用eq6,选择grad
 
-21. 子载波受限2，功率受限eq3,alpha用eq5,选择random
-22. 子载波受限2，功率受限eq3,alpha用eq5,选择random
-23. 子载波受限2，功率受限eq3,alpha用eq5,选择random
-24. 子载波受限2，功率受限eq3,alpha用eq5,选择random
+19. 子载波受限2，功率受限eq3,alpha用eq5,选择random
+20. 子载波受限2，功率受限eq3,alpha用eq5,选择weight
+21. 子载波受限2，功率受限eq3,alpha用eq5,选择grad
 
-25. 子载波受限2，功率受限eq3,alpha用eq6,选择random
-26. 子载波受限2，功率受限eq3,alpha用eq6,选择random
-27. 子载波受限2，功率受限eq3,alpha用eq6,选择random
-28. 子载波受限2，功率受限eq3,alpha用eq6,选择random
+22. 子载波受限2，功率受限eq3,alpha用eq6,选择random
+23. 子载波受限2，功率受限eq3,alpha用eq6,选择weight
+24. 子载波受限2，功率受限eq3,alpha用eq6,选择grad
+
