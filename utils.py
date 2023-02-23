@@ -1,12 +1,6 @@
-from torch.utils import data
-from torchvision import transforms
-import torchvision
 import yaml
-# %%
 import os
 import torch as t
-from torch import Tensor
-import yaml
 import torch.nn as nn
 import numpy as np
 from numpy import ndarray
@@ -71,24 +65,6 @@ def get_model_size(model: t.nn.Module) -> int:
     # print("total size of the model is:{:.3f}MB".format(all_size))
 
     return all_size
-# %%
-
-
-def load_data_fashion_mnist(train_root, test_root, batch_size, resize=None):
-    """Download the Fashion-MNIST dataset and then load it into memory.
-    Defined in :numref:`sec_fashion_mnist`"""
-    trans = [transforms.ToTensor()]
-    if resize:
-        trans.insert(0, transforms.Resize(resize))
-    trans = transforms.Compose(trans)
-    mnist_train = torchvision.datasets.FashionMNIST(
-        root=train_root, train=True, transform=trans, download=True)
-    mnist_test = torchvision.datasets.FashionMNIST(
-        root=test_root, train=False, transform=trans, download=True)
-    return (data.DataLoader(mnist_train, batch_size, shuffle=True,
-                            num_workers=0),
-            data.DataLoader(mnist_test, batch_size, shuffle=False,
-                            num_workers=0))
 
 
 def weight_init(m: t.nn.Module):
@@ -262,17 +238,16 @@ def aggregation(model_dicts: list[dict], sigma: float):
         return None
 
 
-def gen_topo(num_clients: int, seed: int):
+def gen_topo(num_clients: int):
     """
     randomly generate a graph of the network
     ------
     Parameters:
         num_clients: the number of clients
-        seed: the random seed
     Returns:
         the adjacency matrix
     """
-    np.random.seed(seed)
+
     mat = np.random.randn(num_clients, num_clients)
     # should be modified later
     mat[mat <= 0] = 0.
@@ -324,3 +299,48 @@ def calculate_E(W: float, x: ndarray, h: ndarray, beta: float):
     inner_term = np.power(inner_term, 2)
     inner_term = np.sum(inner_term)
     return inner_term*beta
+
+
+def calculate_agg_var(W: ndarray, idx: int, sigma: float, agg_mode: str):
+    """
+    Calculate the variance of Gaussian noise in aggregation procedure
+    ------
+    Parameters:
+        W: the weight matrix
+        idx: the id of the aggregation device
+        sigma: the orginal variance
+        agg_mode: the aggregation mode, only support dllsoa and dpsgd
+    Returns:
+        The variance of Gaussian noise in aggregation procedure
+    """
+    if agg_mode == "dllsoa":
+        return sigma
+    elif agg_mode == "dpsgd":
+        w_prime = W.copy()
+        w_prime = w_prime[idx]
+        w_prime[idx] = 0
+        return sigma * np.linalg.norm(w_prime)
+    else:
+        raise NotImplementedError("Only support dllsoa and dpsgd")
+
+
+def calculate_data_amount(models: list[dict]):
+    """
+    calculate the communication data amount
+    ------
+    Parameters:
+        models: the rcv_model of client i
+    Returns:
+        Parameter size and parameter amount
+    """
+    if len(models) != 0:
+        length = len(models)
+        param_size = 0
+        param_sum = 0
+        for key in models[0].keys():
+            param_size += models[0][key].nelement() * \
+                models[0][key].element_size()
+            param_sum += models[0][key].nelement()
+        return param_size*length, param_sum*length
+    else:
+        return 0

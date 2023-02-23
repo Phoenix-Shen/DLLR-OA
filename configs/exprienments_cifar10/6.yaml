@@ -1,21 +1,21 @@
-dataset: MNIST #only support MNIST and CIFAR10
+dataset: CIFAR10 #only support MNIST and CIFAR10
 disable_com: False # disable communication if is True
 num_clients: 12 # the number of local clients
 model_name: resnet-18 # only support resnet-18 and CNN
 iid: True # True or False, use IID data?
 batch_size: 128 # the batch size in the train and test procedure
 lr: 0.001 # the lr of each client
-comp_strategy: random # only support random,weight and grad
+comp_strategy: grad # only support random,weight and grad
 train_epoch: 100 # number of main communication epoch
 ep_num: 5 # the number of epoch in every local update procedure
-sub_carrier_strategy: no-limit # only support no-limit, restricted-1, restricted-2, restricted-3
+sub_carrier_strategy: restricted-1 # only support no-limit, restricted-1, restricted-2, restricted-3
 cuda: True # use cuda instead of cpu?
 amendment_strategy: eq5 # only support eq5 and eq6 which correspond to the eq5 and eq6 in the paper
 aggregation_mode: dllsoa #only support dpsgd and dllsoa, the difference between the two is whether noise is added before or after aggregation
 sigma: 0.01 # the noise of the over-the-air computation
 seed: 1 # the random seed
-beta: 0.8 # the estimation factor of E
-beta_noise: 0.01 # the std of the beta's gaussian noise
-pow_limit: True # whether the transmit power is limited
+beta: 1.0 # the estimation factor of E
+beta_noise: 0.0 # the std of the beta's gaussian noise
+pow_limit: False # whether the transmit power is limited
 pow_allocation_strategy: eq3 # the power allocation strategy when power_limit is True, only support avg and eq3
 log_dir: "./logs"

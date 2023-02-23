@@ -17,5 +17,5 @@ seed: 1 # the random seed
 beta: 0.8 # the estimation factor of E
 beta_noise: 0.01 # the std of the beta's gaussian noise
 pow_limit: True # whether the transmit power is limited
-pow_allocation_strategy: eq3 # the power allocation strategy when power_limit is True, only support avg and eq3
+pow_allocation_strategy: eq6 # the power allocation strategy when power_limit is True, only support avg and eq3
 log_dir: "./logs"

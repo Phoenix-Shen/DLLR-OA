@@ -1,4 +1,4 @@
-dataset: MNIST #only support MNIST and CIFAR10
+dataset: CIFAR10 #only support MNIST and CIFAR10
 disable_com: False # disable communication if is True
 num_clients: 12 # the number of local clients
 model_name: resnet-18 # only support resnet-18 and CNN
