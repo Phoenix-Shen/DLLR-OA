@@ -343,4 +343,4 @@ def calculate_data_amount(models: list[dict]):
             param_sum += models[0][key].nelement()
         return param_size*length, param_sum*length
     else:
-        return 0
+        return 0, 0
