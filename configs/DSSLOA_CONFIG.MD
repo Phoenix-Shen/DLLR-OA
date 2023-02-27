@@ -51,4 +51,3 @@ All settings are stored in the folder `configs/exprienments`, if you want to tra
 
 ## 无噪声的情况
 35. 子载波不受限，功率不受限，选择策略random（不受限的情况下，选啥都是一样的），聚合前先加噪声(dpsgd)，噪声的$\sigma=0$ 
-36. 子载波不受限，功率不受限，选择策略random（不受限的情况下，选啥都是一样的），聚合后才加噪声(dllsoa)，噪声的$\sigma=0$ 

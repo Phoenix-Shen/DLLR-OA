@@ -33,3 +33,4 @@ CUDA_VISIBLE_DEVICES=1  /home/ubuntu/miniconda3/envs/pytorch/bin/python main.py 
 CUDA_VISIBLE_DEVICES=1  /home/ubuntu/miniconda3/envs/pytorch/bin/python main.py configs/exprienments_cifar10/32.yaml
 CUDA_VISIBLE_DEVICES=1  /home/ubuntu/miniconda3/envs/pytorch/bin/python main.py configs/exprienments_cifar10/33.yaml
 CUDA_VISIBLE_DEVICES=1  /home/ubuntu/miniconda3/envs/pytorch/bin/python main.py configs/exprienments_cifar10/34.yaml
+CUDA_VISIBLE_DEVICES=1  /home/ubuntu/miniconda3/envs/pytorch/bin/python main.py configs/exprienments_cifar10/35.yaml
