@@ -48,3 +48,7 @@ All settings are stored in the folder `configs/exprienments`, if you want to tra
 32. 子载波受限2，功率受限，b的计算使用eq3,alpha用eq6,选择random, $\beta=1.5$+noise
 33. 子载波受限2，功率受限，b的计算使用eq3,alpha用eq6,选择weight, $\beta=1.5$+noise
 34. 子载波受限2，功率受限，b的计算使用eq3,alpha用eq6,选择grad, $\beta=1.5$+noise
+
+## 无噪声的情况
+35. 子载波不受限，功率不受限，选择策略random（不受限的情况下，选啥都是一样的），聚合前先加噪声(dpsgd)，噪声的$\sigma=0$ 
+36. 子载波不受限，功率不受限，选择策略random（不受限的情况下，选啥都是一样的），聚合后才加噪声(dllsoa)，噪声的$\sigma=0$ 
