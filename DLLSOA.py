@@ -214,7 +214,7 @@ class DLLSOA(object):
             num_channels = 3
             num_classes = 10
         if args["model_name"] == "resnet-18":
-            net = resnet18.Resnet18(num_channels,num_classes)
+            net = resnet18.Resnet18(num_channels, num_classes)
         elif args["model_name"] == "CNN":
             net = None  # not implemented yet
         else:
@@ -399,7 +399,7 @@ class DLLSOA(object):
             self.writer.add_scalar("mean_test_acc", np.mean(
                 [test_loss_acc[i][1] for i in range(len(test_loss_acc))]), ep)
             self.writer.add_scalar("data_size (MB)", data_size/1024/1024, ep)
-            self.writer.add_scalar("data_amount (M)", data_size/1000000, ep)
+            self.writer.add_scalar("data_amount (M)", data_amount/1000000, ep)
             print(
                 f"ep:[{ep}/{self.train_epoch}],train_loss:{losses},test_loss_acc:{test_loss_acc}")
 
