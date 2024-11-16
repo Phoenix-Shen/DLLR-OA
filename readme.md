@@ -1,5 +1,5 @@
-# Decentralized Learning with Limited Subcarriers through Over-the-Air Computation
-
+# Communication Resources Limited Decentralized Learning with Privacy Guarantee through Over-the-Air Computation
+Here is the coded implementation of our paper `Communication Resources Limited Decentralized Learning with Privacy Guarantee through Over-the-Air Computation`, the original name is `DLLSOA` so the method name appeared in this repo is `DLLSOA`.
 ## 1. Code Structure
 
 - configs: stores the configuration of the experiment
